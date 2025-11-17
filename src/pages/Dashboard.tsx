@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Trophy, Flame, CheckCircle, Plus, Target, Gift } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useToast } from "@/hooks/use-toast";
+import { calculateCyclePhase, type CyclePhase } from "@/lib/cycleUtils";
 
 interface Task {
   id: string;
@@ -33,6 +34,8 @@ const Dashboard = () => {
   const [weekMissions, setWeekMissions] = useState<Mission[]>([]);
   const [userExp, setUserExp] = useState(0);
   const [coupleSpaceId, setCoupleSpaceId] = useState<string>('');
+  const [partnerCyclePhase, setPartnerCyclePhase] = useState<CyclePhase | null>(null);
+  const [partnerName, setPartnerName] = useState<string>('Partner');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -105,6 +108,38 @@ const Dashboard = () => {
         .single();
 
       setUserExp(expData?.exp_points || 0);
+
+      // Load partner's cycle tracking (if enabled)
+      const { data: members } = await supabase
+        .from('couple_members')
+        .select('user_id')
+        .eq('couple_space_id', spaceId);
+
+      const partner = members?.find(m => m.user_id !== userId);
+      if (partner) {
+        // Get partner's name
+        const { data: partnerProfile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', partner.user_id)
+          .single();
+
+        setPartnerName(partnerProfile?.name || 'Partner');
+
+        // Get partner's cycle tracking
+        const { data: cycleData } = await supabase
+          .from('cycle_tracking')
+          .select('*')
+          .eq('user_id', partner.user_id)
+          .eq('couple_space_id', spaceId)
+          .eq('enabled', true)
+          .maybeSingle();
+
+        if (cycleData?.last_period_start) {
+          const phase = calculateCyclePhase(cycleData.last_period_start, cycleData.cycle_length);
+          setPartnerCyclePhase(phase);
+        }
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {
@@ -184,6 +219,29 @@ const Dashboard = () => {
             <p className="text-xs text-muted-foreground">exp</p>
           </div>
         </div>
+
+        {/* Partner Cycle Context */}
+        {partnerCyclePhase && (
+          <Card className="mb-6 shadow-card border-pink-200/50 bg-gradient-to-br from-background to-pink-50/20 dark:to-pink-950/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span className="text-2xl">{partnerCyclePhase.emoji}</span>
+                Kontekst: {partnerName}
+              </CardTitle>
+              <CardDescription className="text-sm font-medium">
+                {partnerCyclePhase.phase} (Dzień {partnerCyclePhase.dayOfCycle})
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {partnerCyclePhase.tip}
+              </p>
+              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
+                💡 To nie diagnoza medyczna, tylko kontekst, który może pomóc w lepszym zrozumieniu.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Week Progress */}
         <Card className="mb-6 shadow-card">

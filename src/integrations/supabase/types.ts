@@ -67,6 +67,47 @@ export type Database = {
         }
         Relationships: []
       }
+      cycle_tracking: {
+        Row: {
+          couple_space_id: string
+          created_at: string
+          cycle_length: number
+          enabled: boolean
+          id: string
+          last_period_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          couple_space_id: string
+          created_at?: string
+          cycle_length?: number
+          enabled?: boolean
+          id?: string
+          last_period_start?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          couple_space_id?: string
+          created_at?: string
+          cycle_length?: number
+          enabled?: boolean
+          id?: string
+          last_period_start?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cycle_tracking_couple_space_id_fkey"
+            columns: ["couple_space_id"]
+            isOneToOne: false
+            referencedRelation: "couple_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       missions: {
         Row: {
           assigned_to: string | null
